@@ -44,7 +44,7 @@ resource "aws_iam_role" "EC2S3FullAccess" {
       {
         "Action" : "sts:AssumeRole",
         "Principal" : {
-          "Service" : "ec2.amazonaws.com" 
+          "Service" : "ec2.amazonaws.com" // Adjust the service as needed
         },
         "Effect" : "Allow",
         "Sid" : ""
@@ -85,7 +85,7 @@ resource "aws_instance" "ec2-env" {
       - echo "sudo service codedeploy-agent status"
         EOF
   tags = {
-    Name = "TEST-environment-ec2"
+    Name = "TEST-environment"
   }
 }
 
@@ -121,14 +121,15 @@ resource "aws_security_group" "my_security_group" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] 
+    cidr_blocks = ["0.0.0.0/0"] # Allow access from any IP address
   }
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] 
+    cidr_blocks = ["0.0.0.0/0"] # Allow access from any IP address
   }
+  # Outbound rule (optional, allow all outbound traffic by default)
   egress {
     from_port   = 0
     to_port     = 0
@@ -147,5 +148,35 @@ resource "aws_s3_bucket" "s3" {
   tags = {
     Name        = "My bucket"
     Environment = "Dev"
+  }
+}
+
+resource "aws_codedeploy_app" "cd_app" {
+  compute_platform = "ECS"
+  name             = "TestApplication"
+}
+
+resource "aws_codedeploy_deployment_group" "cd_group" {
+  app_name              = aws_codedeploy_app.coursera.name
+  deployment_group_name = "TestDeploymentGroup"
+  service_role_arn      = aws_iam_role.codeDeployServiceRole.arn
+  deployment_config_name = aws_codedeploy_deployment_config.foo.id
+  
+  ec2_tag_set {
+    ec2_tag_filter {
+      key   = "filterkey1"
+      type  = "KEY_AND_VALUE"
+      value = "TEST-environment"
+    }
+  }
+
+}
+
+resource "aws_codedeploy_deployment_config" "cd_config" {
+  deployment_config_name = "test-deployment-config"
+
+  minimum_healthy_hosts {
+    type  = "HOST_COUNT"
+    value = 2
   }
 }
